@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="da">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#111418">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Træning">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="style.css">
+  <title>Træning</title>
+</head>
+<body>
+  <nav>
+    <button data-tab="plans" class="active">Planer</button>
+    <button data-tab="log">Log</button>
+    <button data-tab="history">Historik</button>
+    <button data-tab="settings">⚙︎</button>
+  </nav>
+
+  <main>
+    <p id="status" hidden></p>
+
+    <section id="plans">
+      <div id="plan-list" class="list"></div>
+      <div id="plan-view" hidden>
+        <button id="plan-back" class="link">← Alle planer</button>
+        <pre id="plan-text"></pre>
+        <button id="plan-log" class="primary">Log denne træning</button>
+      </div>
+    </section>
+
+    <section id="log" hidden>
+      <form id="log-form">
+        <label>Træning
+          <select name="workout" id="workout"></select>
+        </label>
+        <pre id="goal" hidden></pre>
+        <div class="row">
+          <label>Dato <input type="date" name="date" required></label>
+        </div>
+        <div class="row">
+          <label>Start <input type="time" name="start"></label>
+          <label>Slut <input type="time" name="end"></label>
+        </div>
+        <label>Sted <input type="text" name="place" placeholder="fx PureGym Trøjborg"></label>
+        <label>Øvelser (én linje pr. øvelse)
+          <textarea name="body" rows="12" placeholder="Øvelse — vægt — sæt×gentagelser — note" required></textarea>
+        </label>
+        <button type="button" id="prefill" class="link">Udfyld fra plan</button>
+        <button type="submit" class="primary">Gem i log</button>
+      </form>
+    </section>
+
+    <section id="history" hidden>
+      <div id="history-list"></div>
+    </section>
+
+    <section id="settings" hidden>
+      <form id="settings-form">
+        <label>GitHub token
+          <input type="password" name="token" autocomplete="off" required>
+        </label>
+        <p class="hint">Fine-grained token. Kun adgang til dit repo. Rettighed: Contents = Read and write. Tokenet gemmes kun på denne enhed.</p>
+        <label>Ejer <input type="text" name="owner"></label>
+        <label>Repo <input type="text" name="repo"></label>
+        <label>Branch <input type="text" name="branch"></label>
+        <button type="submit" class="primary">Gem og test</button>
+      </form>
+    </section>
+  </main>
+
+  <script type="module" src="app.js"></script>
+</body>
+</html>

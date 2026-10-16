@@ -156,7 +156,13 @@ async function start() {
     show('plans');
   } catch (err) {
     show('settings');
-    status(`Kunne ikke hente planer. Tjek token og repo. ${err.message}`, 'error');
+    let who = '';
+    try {
+      const res = await fetch('https://api.github.com/user', { headers: { Authorization: `Bearer ${store.get('token', '')}` } });
+      who = res.ok ? ` Tokenet tilhører kontoen "${(await res.json()).login}".` : ' Tokenet er ugyldigt eller udløbet.';
+    } catch {}
+    const hint = err.status === 404 ? ' Tokenet kan ikke se repoet. Vælg repoet under "Repository access", og giv "Contents: Read and write".' : '';
+    status(`Kunne ikke hente planer. ${err.message}.${who}${hint}`, 'error');
   }
 }
 

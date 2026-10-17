@@ -23,22 +23,21 @@ function sectionLines(text, headers) {
   let on = false;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
-    if (headers.includes(line)) {
+    if (headers.some((h) => line === h || line.startsWith(`${h}:`))) {
       on = true;
       continue;
     }
-    if (!on) continue;
     if (line === '') {
-      if (out.length) break;
+      on = false;
       continue;
     }
-    out.push(line);
+    if (on) out.push(line);
   }
   return out;
 }
 
-// Lines to prefill the log form with: the main part of a plan.
-export const mainLines = (text) => sectionLines(text, ['Hoveddel', 'Øvelser', 'Log']);
+// Lines to prefill the log form with: the skill and main parts of a plan.
+export const mainLines = (text) => sectionLines(text, ['Skill', 'Hoveddel', 'Øvelser', 'Log']);
 export const nextGoal = (text) => sectionLines(text, ['Næste mål']).join('\n');
 
 function formatDate(iso) {

@@ -18,6 +18,10 @@ assert.equal(b64decode(b64encode('Træning æøå — ×')), 'Træning æøå �
 assert.deepEqual(mainLines(plan), ['Weighted pull-ups — 40 kg × 3', 'Front lever — 3×6 sek.']);
 assert.equal(nextGoal(plan), '40 kg × 3; 30 kg × 5/5/5');
 assert.deepEqual(mainLines('Løb\n\nLog\nTid — km — puls\n'), ['Tid — km — puls']);
+assert.deepEqual(
+  mainLines('X\n\nOpvarmning\nw\n\nSkill: one-arm (10 min)\nOAHS — 4×5\n\nHoveddel\nHSPU — 4×3\n\nNæste mål\ng\n'),
+  ['OAHS — 4×5', 'HSPU — 4×3'],
+);
 
 assert.equal(
   formatEntry({ date: '2026-10-17', start: '10:00', end: '11:05', workout: 'pull-tung', place: 'PureGym ', body: ' A — 1\n\n B — 2 \n' }),

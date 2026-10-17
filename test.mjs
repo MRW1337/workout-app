@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { b64encode, b64decode, mainLines, nextGoal, formatEntry, appendEntry, splitEntries } from './core.js';
+import { b64encode, b64decode, mainLines, nextGoal, formatEntry, appendEntry, splitEntries, lastEntryFor } from './core.js';
 
 const plan = `Pull — tung
 
@@ -30,5 +30,10 @@ assert.equal(appendEntry('head\n\n\n', 'new\n'), 'head\n\nnew\n');
 
 const log = 'Skabelon:\nDato | Tid\n\n12-10-2026 | a\n\nx\n\n13-10-2026 | b\n\ny';
 assert.deepEqual(splitEntries(log), ['13-10-2026 | b\n\ny', '12-10-2026 | a\n\nx']);
+
+const log2 = 'Skabelon:\nDato | Tid | Træning\n\n14-10-2026 | — | pull-tung\n\nold\n\n15-10-2026 | — | push | Gym\n\np\n\n17-10-2026 | 10.30 | pull-tung\n\nnew';
+assert.equal(lastEntryFor(log2, 'pull-tung'), '17-10-2026 | 10.30 | pull-tung\n\nnew');
+assert.equal(lastEntryFor(log2, 'push'), '15-10-2026 | — | push | Gym\n\np');
+assert.equal(lastEntryFor(log2, 'zone2-loeb'), '');
 
 console.log('all tests passed');

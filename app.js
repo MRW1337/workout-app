@@ -1,4 +1,4 @@
-import { DEFAULTS, createClient, mainLines, nextGoal, formatEntry, splitEntries } from './core.js';
+import { DEFAULTS, createClient, mainLines, nextGoal, formatEntry, splitEntries, lastEntryFor, appendEntry } from './core.js';
 
 const $ = (s) => document.querySelector(s);
 const store = {
@@ -9,6 +9,7 @@ const store = {
 const cfg = () => ({ ...DEFAULTS, ...store.get('cfg', {}) });
 const client = () => createClient({ ...cfg(), token: store.get('token', '') });
 const plans = new Map();
+let logText = '';
 
 function status(msg, kind = 'info') {
   const el = $('#status');
@@ -27,7 +28,11 @@ function show(tab) {
 async function loadPlans() {
   const c = cfg();
   const names = (await client().listDir(c.planDir)).filter((n) => n.endsWith('.txt'));
-  await Promise.all(names.map(async (n) => plans.set(n.replace(/\.txt$/, ''), (await client().getFile(`${c.planDir}/${n}`)).text)));
+  plans.clear();
+  await Promise.all([
+    ...names.map(async (n) => plans.set(n.replace(/\.txt$/, ''), (await client().getFile(`${c.planDir}/${n}`)).text)),
+    client().getFile(c.logPath).then((f) => (logText = f.text), () => (logText = '')),
+  ]);
 
   const list = $('#plan-list');
   list.replaceChildren();
@@ -59,9 +64,13 @@ function openPlan(name) {
 }
 
 function updateGoal() {
-  const goal = nextGoal(plans.get($('#workout').value) || '');
+  const workout = $('#workout').value;
+  const goal = nextGoal(plans.get(workout) || '');
   $('#goal').hidden = !goal;
   $('#goal').textContent = goal ? `Næste mål\n${goal}` : '';
+  const last = workout === 'andet' ? '' : lastEntryFor(logText, workout);
+  $('#last').hidden = workout === 'andet';
+  $('#last').textContent = last ? `Sidste gang\n${last}` : 'Sidste gang\nIngen tidligere log med denne workout.';
 }
 
 function prefill(force) {
@@ -94,6 +103,8 @@ async function submitLog(e) {
   status('Gemmer …');
   try {
     await client().appendToFile(cfg().logPath, entry, `Log: ${entry.split('\n')[0]}`);
+    logText = appendEntry(logText, entry);
+    updateGoal();
     store.set('lastPlace', data.place || '');
     localStorage.removeItem('draft');
     form.body.value = '';
@@ -113,6 +124,8 @@ async function loadHistory() {
   list.textContent = 'Henter …';
   try {
     const { text } = await client().getFile(cfg().logPath);
+    logText = text;
+    updateGoal();
     list.replaceChildren(
       ...splitEntries(text).slice(0, 10).map((entry) => {
         const pre = document.createElement('pre');

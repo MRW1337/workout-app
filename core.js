@@ -69,6 +69,11 @@ export function splitEntries(text) {
     .reverse();
 }
 
+export function lastEntryFor(text, workout) {
+  const name = workout.trim().toLowerCase();
+  return splitEntries(text).find((e) => (e.split('\n')[0].split('|')[2] || '').trim().toLowerCase() === name) || '';
+}
+
 export function createClient({ token, owner, repo, branch }) {
   const base = `https://api.github.com/repos/${owner}/${repo}/contents/`;
   const enc = (p) => p.split('/').map(encodeURIComponent).join('/');

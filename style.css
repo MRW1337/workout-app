@@ -89,5 +89,6 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14p
 .hint { color: var(--muted); font-size: 13px; }
 
 #status { padding: 10px 12px; border-radius: 8px; background: var(--card); }
+#last { color: var(--muted); }
 #status.ok { color: var(--accent); }
 #status.error { color: var(--error); }

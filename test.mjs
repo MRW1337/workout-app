@@ -24,14 +24,7 @@ assert.deepEqual(
 );
 
 const linear = 'PULL — TUNG\n\nOPVARMNING\n• Pull-ups 2×5\n\n1. WEIGHTED PULL-UPS — TUNG\nVægt:    40 kg\nSæt:     1 × 3–4\nMål:     40 kg × 4\nNæste:   42,5 kg × 3\n\n2. FRONT LEVER\nVægt:    Advanced tuck\n';
-assert.deepEqual(mainLines(linear), [
-  '1. WEIGHTED PULL-UPS — TUNG',
-  'Vægt:    40 kg',
-  'Sæt:     1 × 3–4',
-  '',
-  '2. FRONT LEVER',
-  'Vægt:    Advanced tuck',
-]);
+assert.equal(mainLines(linear).join('\n'), linear.trim());
 assert.equal(nextGoal(linear), 'Weighted pull-ups — tung: 40 kg × 4');
 
 assert.equal(

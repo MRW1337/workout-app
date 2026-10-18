@@ -55,14 +55,9 @@ function exerciseBlocks(text) {
   return blocks;
 }
 
-const PLAN_ONLY = /^(Mål|Næste):/;
-
-// Lines to prefill the log form with. Linear plans are copied as-is, minus the goal lines.
+// Lines to prefill the log form with. Linear plans are copied whole.
 export function mainLines(text) {
-  const blocks = exerciseBlocks(text);
-  if (blocks.length) {
-    return blocks.flatMap((b, i) => [...(i ? [''] : []), b.header, ...b.lines.filter((l) => !PLAN_ONLY.test(l))]);
-  }
+  if (exerciseBlocks(text).length) return text.trim().split(/\r?\n/).map((l) => l.trimEnd());
   return sectionLines(text, ['Skill', 'Hoveddel', 'Øvelser', 'Log']);
 }
 

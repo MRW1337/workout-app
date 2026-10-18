@@ -36,9 +36,43 @@ function sectionLines(text, headers) {
   return out;
 }
 
-// Lines to prefill the log form with: the skill and main parts of a plan.
-export const mainLines = (text) => sectionLines(text, ['Skill', 'Hoveddel', 'Øvelser', 'Log']);
-export const nextGoal = (text) => sectionLines(text, ['Næste mål']).join('\n');
+// Linear plan format: an exercise starts with "1. NAME", followed by its lines until a blank line.
+function exerciseBlocks(text) {
+  const blocks = [];
+  let cur = null;
+  for (const raw of text.split(/\r?\n/)) {
+    const line = raw.trim();
+    const m = line.match(/^\d+\.\s+(.+)$/);
+    if (m) {
+      cur = { header: line, name: m[1].charAt(0) + m[1].slice(1).toLowerCase(), lines: [] };
+      blocks.push(cur);
+    } else if (!line) {
+      cur = null;
+    } else if (cur) {
+      cur.lines.push(line);
+    }
+  }
+  return blocks;
+}
+
+const PLAN_ONLY = /^(Mål|Næste):/;
+
+// Lines to prefill the log form with. Linear plans are copied as-is, minus the goal lines.
+export function mainLines(text) {
+  const blocks = exerciseBlocks(text);
+  if (blocks.length) {
+    return blocks.flatMap((b, i) => [...(i ? [''] : []), b.header, ...b.lines.filter((l) => !PLAN_ONLY.test(l))]);
+  }
+  return sectionLines(text, ['Skill', 'Hoveddel', 'Øvelser', 'Log']);
+}
+
+export function nextGoal(text) {
+  const goals = exerciseBlocks(text)
+    .map((b) => [b.name, b.lines.find((l) => l.startsWith('Mål:'))])
+    .filter(([, g]) => g)
+    .map(([name, g]) => `${name}: ${g.slice(4).trim()}`);
+  return goals.length ? goals.join('\n') : sectionLines(text, ['Næste mål']).join('\n');
+}
 
 function formatDate(iso) {
   const [y, m, d] = iso.split('-');
@@ -50,8 +84,9 @@ export function formatEntry({ date, start, end, workout, place, body }) {
   const time = start && end ? `${dot(start)}–${dot(end)}` : start ? dot(start) : '—';
   const header = [formatDate(date), time, workout.trim() || '—'];
   if (place && place.trim()) header.push(place.trim());
-  const lines = body.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
-  return `${header.join(' | ')}\n\n${lines.join('\n')}`;
+  // Keep single blank lines between exercise blocks; drop the rest.
+  const body2 = body.split(/\r?\n/).map((l) => l.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  return `${header.join(' | ')}\n\n${body2}`;
 }
 
 export function appendEntry(text, entry) {

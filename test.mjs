@@ -23,9 +23,20 @@ assert.deepEqual(
   ['OAHS — 4×5', 'HSPU — 4×3'],
 );
 
+const linear = 'PULL — TUNG\n\nOPVARMNING\n• Pull-ups 2×5\n\n1. WEIGHTED PULL-UPS — TUNG\nVægt:    40 kg\nSæt:     1 × 3–4\nMål:     40 kg × 4\nNæste:   42,5 kg × 3\n\n2. FRONT LEVER\nVægt:    Advanced tuck\n';
+assert.deepEqual(mainLines(linear), [
+  '1. WEIGHTED PULL-UPS — TUNG',
+  'Vægt:    40 kg',
+  'Sæt:     1 × 3–4',
+  '',
+  '2. FRONT LEVER',
+  'Vægt:    Advanced tuck',
+]);
+assert.equal(nextGoal(linear), 'Weighted pull-ups — tung: 40 kg × 4');
+
 assert.equal(
-  formatEntry({ date: '2026-10-17', start: '10:00', end: '11:05', workout: 'pull-tung', place: 'PureGym ', body: ' A — 1\n\n B — 2 \n' }),
-  '17-10-2026 | 10.00–11.05 | pull-tung | PureGym\n\nA — 1\nB — 2',
+  formatEntry({ date: '2026-10-17', start: '10:00', end: '11:05', workout: 'pull-tung', place: 'PureGym ', body: '\n A — 1\n\n\n\n B — 2 \n\n' }),
+  '17-10-2026 | 10.00–11.05 | pull-tung | PureGym\n\nA — 1\n\nB — 2',
 );
 assert.equal(formatEntry({ date: '2026-10-17', start: '', end: '', workout: 'zone2-loeb', place: '', body: 'x' }), '17-10-2026 | — | zone2-loeb\n\nx');
 

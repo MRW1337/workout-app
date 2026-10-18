@@ -84,7 +84,7 @@ input, select, textarea {
   font-size: 16px;
 }
 
-textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 14px; }
+textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 15px; line-height: 1.5; min-height: 45vh; resize: vertical; field-sizing: content; }
 
 .hint { color: var(--muted); font-size: 13px; }
 

@@ -80,7 +80,14 @@ function prefill(force) {
   saveDraft();
 }
 
+function autosize() {
+  const ta = $('#log-form').body;
+  ta.style.height = 'auto';
+  ta.style.height = `${ta.scrollHeight + 2}px`;
+}
+
 function saveDraft() {
+  autosize();
   store.set('draft', Object.fromEntries(new FormData($('#log-form'))));
 }
 
@@ -90,6 +97,7 @@ function restoreDraft() {
   for (const [k, v] of Object.entries(d)) if (form[k] && v) form[k].value = v;
   if (!form.date.value) form.date.value = new Date().toLocaleDateString('sv-SE');
   if (!form.place.value) form.place.value = store.get('lastPlace', '');
+  autosize();
 }
 
 async function submitLog(e) {
@@ -111,6 +119,7 @@ async function submitLog(e) {
     form.start.value = '';
     form.end.value = '';
     form.date.value = new Date().toLocaleDateString('sv-SE');
+    autosize();
     status('Gemt i loggen ✓', 'ok');
   } catch (err) {
     status(`Kunne ikke gemme. Dit udkast er gemt på telefonen. ${err.message}`, 'error');

@@ -64,7 +64,7 @@ export function mainLines(text) {
 export function nextGoal(text) {
   const goals = exerciseBlocks(text)
     .map((b) => [b.name, b.lines.find((l) => l.startsWith('Mål:'))])
-    .filter(([, g]) => g)
+    .filter(([, g]) => g && g.slice(4).trim() !== '—')
     .map(([name, g]) => `${name}: ${g.slice(4).trim()}`);
   return goals.length ? goals.join('\n') : sectionLines(text, ['Næste mål']).join('\n');
 }

@@ -18,33 +18,21 @@ export function b64decode(b64) {
   return new TextDecoder().decode(Uint8Array.from(bin, (c) => c.charCodeAt(0)));
 }
 
-function sectionLines(text, headers) {
-  const out = [];
-  let on = false;
-  for (const raw of text.split(/\r?\n/)) {
-    const line = raw.trim();
-    if (headers.some((h) => line === h || line.startsWith(`${h}:`))) {
-      on = true;
-      continue;
-    }
-    if (line === '') {
-      on = false;
-      continue;
-    }
-    if (on) out.push(line);
-  }
-  return out;
-}
+// Line above every log entry, so each workout is easy to find in the log file.
+export const SEP = '═'.repeat(30);
 
-// Linear plan format: an exercise starts with "1. NAME", followed by its lines until a blank line.
+export const isExerciseFile = (name) => name.endsWith('.log.txt');
+export const sameName = (a, b) => a.trim().toUpperCase() === b.trim().toUpperCase();
+
+// Plan and log format: an exercise starts with "1. NAME", followed by its lines until a blank line.
 function exerciseBlocks(text) {
   const blocks = [];
   let cur = null;
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim();
-    const m = line.match(/^\d+\.\s+(.+)$/);
+    const m = line.match(/^(\d+)\.\s+(.+)$/);
     if (m) {
-      cur = { header: line, name: m[1].charAt(0) + m[1].slice(1).toLowerCase(), lines: [] };
+      cur = { num: m[1], name: m[2], lines: [] };
       blocks.push(cur);
     } else if (!line) {
       cur = null;
@@ -55,18 +43,57 @@ function exerciseBlocks(text) {
   return blocks;
 }
 
-// Lines to prefill the log form with. Linear plans are copied whole.
-export function mainLines(text) {
-  if (exerciseBlocks(text).length) return text.trim().split(/\r?\n/).map((l) => l.trimEnd());
-  return sectionLines(text, ['Skill', 'Hoveddel', 'Øvelser', 'Log']);
+// Guideline file: goal, reserve and note for each exercise, by name.
+export function planInfo(text) {
+  return exerciseBlocks(text).map((b) => {
+    const get = (k) => {
+      const v = (b.lines.find((l) => l.startsWith(`${k}:`)) || '').slice(k.length + 1).trim();
+      return v === '—' ? '' : v;
+    };
+    return { name: b.name, goal: get('Mål'), reserve: get('Reserve'), note: get('Noter') };
+  });
 }
 
-export function nextGoal(text) {
-  const goals = exerciseBlocks(text)
-    .map((b) => [b.name, b.lines.find((l) => l.startsWith('Mål:'))])
-    .filter(([, g]) => g && g.slice(4).trim() !== '—')
-    .map(([name, g]) => `${name}: ${g.slice(4).trim()}`);
-  return goals.length ? goals.join('\n') : sectionLines(text, ['Næste mål']).join('\n');
+// "V 30 kg × 4" → { side: 'V', load: '30 kg', n: '4', unit: '×' }; "Advanced tuck 6 sek." → unit 'sek.'
+export function parseSet(line) {
+  let s = line.trim();
+  let side = '';
+  const sm = s.match(/^([VH])\s+(.*)$/);
+  if (sm) [, side, s] = sm;
+  let m = s.match(/^(.*?)\s*×\s*(\d+)$/);
+  if (m) return { side, load: m[1], n: m[2], unit: '×' };
+  m = s.match(/^(.*?)\s*(\d+(?:[.,]\d+)?)\s*sek\.?$/);
+  if (m) return { side, load: m[1], n: m[2], unit: 'sek.' };
+  return { side, load: s, n: '', unit: '' };
+}
+
+export function formatSet({ side, load, n, unit }) {
+  const k = String(n ?? '').trim();
+  const amount = !k ? '' : unit === '×' ? `× ${k}` : unit === 'sek.' ? `${k} sek.` : '';
+  return [side, load.trim(), amount].filter(Boolean).join(' ');
+}
+
+// Exercise file or log entry → [{ num, name, pause, note, sets }].
+export function parseExercises(text) {
+  return exerciseBlocks(text).map((b) => {
+    const ex = { num: b.num, name: b.name, pause: '', note: '', sets: [] };
+    for (const line of b.lines) {
+      const kv = line.match(/^(Pause|Note):\s*(.*)$/);
+      if (kv) ex[kv[1].toLowerCase()] = kv[2];
+      else ex.sets.push(parseSet(line));
+    }
+    return ex;
+  });
+}
+
+export function formatExercises(exercises) {
+  return exercises
+    .map((e) =>
+      [`${e.num}. ${e.name.trim()}`, e.pause.trim() && `Pause: ${e.pause.trim()}`, ...e.sets.map(formatSet), e.note.trim() && `Note: ${e.note.trim()}`]
+        .filter(Boolean)
+        .join('\n'),
+    )
+    .join('\n\n');
 }
 
 function formatDate(iso) {
@@ -81,17 +108,20 @@ export function formatEntry({ date, start, end, workout, place, body }) {
   if (place && place.trim()) header.push(place.trim());
   // Keep single blank lines between exercise blocks; drop the rest.
   const body2 = body.split(/\r?\n/).map((l) => l.trim()).join('\n').replace(/\n{3,}/g, '\n\n').trim();
-  return `${header.join(' | ')}\n\n${body2}`;
+  return `${SEP}\n${header.join(' | ')}\n\n${body2}`;
 }
+
+export const entryHeader = (entry) => entry.split('\n').find((l) => /^\d{2}-\d{2}-\d{4} \|/.test(l)) || '';
 
 export function appendEntry(text, entry) {
   return `${text.replace(/\s+$/, '')}\n\n${entry.trim()}\n`;
 }
 
-// Log entries start with a "DD-MM-YYYY |" header line. Returns newest first.
+// Log entries start with a "DD-MM-YYYY |" header line, with a SEP line above. Returns newest first, without SEP.
 export function splitEntries(text) {
   return text
     .replace(/\r\n/g, '\n')
+    .replace(/^═{3,}[ \t]*$/gm, '')
     .split(/\n(?=\d{2}-\d{2}-\d{4} \|)/)
     .filter((chunk) => /^\d{2}-\d{2}-\d{4} \|/.test(chunk))
     .map((chunk) => chunk.trim())

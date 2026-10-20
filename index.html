@@ -38,8 +38,7 @@
         <label>Træning
           <select name="workout" id="workout"></select>
         </label>
-        <pre id="goal" hidden></pre>
-        <pre id="last" hidden></pre>
+        <details id="last" hidden><summary>Sidste gang</summary><pre></pre></details>
         <div class="row">
           <label>Dato <input type="date" name="date" required></label>
         </div>
@@ -48,10 +47,12 @@
           <label>Slut <input type="time" name="end"></label>
         </div>
         <label>Sted <input type="text" name="place" placeholder="fx PureGym Trøjborg"></label>
-        <label>Øvelser (én linje pr. øvelse)
-          <textarea name="body" rows="12" placeholder="Øvelse — vægt — sæt×gentagelser — note" required></textarea>
-        </label>
         <button type="button" id="prefill" class="link">Udfyld fra plan</button>
+        <div id="cards"></div>
+        <button type="button" id="add-ex" class="link">+ øvelse</button>
+        <label>Andet (fx opvarmning eller ekstra øvelser)
+          <textarea name="body" rows="3"></textarea>
+        </label>
         <button type="submit" class="primary">Gem i log</button>
       </form>
     </section>

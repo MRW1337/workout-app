@@ -1,4 +1,7 @@
-import { DEFAULTS, createClient, mainLines, nextGoal, formatEntry, splitEntries, lastEntryFor, appendEntry } from './core.js';
+import {
+  DEFAULTS, createClient, formatEntry, entryHeader, splitEntries, lastEntryFor, appendEntry,
+  isExerciseFile, sameName, planInfo, parseExercises, formatExercises, formatSet,
+} from './core.js';
 
 const $ = (s) => document.querySelector(s);
 const store = {
@@ -9,13 +12,22 @@ const store = {
 const cfg = () => ({ ...DEFAULTS, ...store.get('cfg', {}) });
 const client = () => createClient({ ...cfg(), token: store.get('token', '') });
 const plans = new Map();
+const exFiles = new Map();
 let logText = '';
+let exercises = [];
+let dirty = false;
+
+function el(tag, props = {}, ...kids) {
+  const e = Object.assign(document.createElement(tag), props);
+  e.append(...kids.filter((k) => k != null && k !== '' && k !== false));
+  return e;
+}
 
 function status(msg, kind = 'info') {
-  const el = $('#status');
-  el.hidden = !msg;
-  el.textContent = msg || '';
-  el.className = kind;
+  const s = $('#status');
+  s.hidden = !msg;
+  s.textContent = msg || '';
+  s.className = kind;
 }
 
 function show(tab) {
@@ -23,14 +35,20 @@ function show(tab) {
   document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   status('');
   if (tab === 'history') loadHistory();
+  if (tab === 'log' && !exercises.length && !$('#log-form').body.value.trim()) prefill(false);
 }
 
 async function loadPlans() {
   const c = cfg();
   const names = (await client().listDir(c.planDir)).filter((n) => n.endsWith('.txt'));
   plans.clear();
+  exFiles.clear();
   await Promise.all([
-    ...names.map(async (n) => plans.set(n.replace(/\.txt$/, ''), (await client().getFile(`${c.planDir}/${n}`)).text)),
+    ...names.map(async (n) => {
+      const { text } = await client().getFile(`${c.planDir}/${n}`);
+      if (isExerciseFile(n)) exFiles.set(n.replace(/\.log\.txt$/, ''), text);
+      else plans.set(n.replace(/\.txt$/, ''), text);
+    }),
     client().getFile(c.logPath).then((f) => (logText = f.text), () => (logText = '')),
   ]);
 
@@ -39,15 +57,11 @@ async function loadPlans() {
   const select = $('#workout');
   select.replaceChildren();
   for (const name of [...plans.keys()].sort((a, b) => (a === 'oversigt' ? -1 : b === 'oversigt' ? 1 : a.localeCompare(b)))) {
-    const btn = document.createElement('button');
-    btn.textContent = name;
-    btn.onclick = () => openPlan(name);
-    list.append(btn);
+    list.append(el('button', { textContent: name, onclick: () => openPlan(name) }));
     if (name !== 'oversigt') select.append(new Option(name, name));
   }
   select.append(new Option('andet', 'andet'));
   restoreDraft();
-  updateGoal();
 }
 
 function openPlan(name) {
@@ -56,28 +70,124 @@ function openPlan(name) {
   $('#plan-text').textContent = plans.get(name);
   $('#plan-log').hidden = name === 'oversigt';
   $('#plan-log').onclick = () => {
+    const changed = $('#workout').value !== name;
     $('#workout').value = name;
-    updateGoal();
-    prefill(false);
+    if (changed || !exercises.length) prefill(true);
     show('log');
   };
 }
 
-function updateGoal() {
+function updateLast() {
   const workout = $('#workout').value;
-  const goal = nextGoal(plans.get(workout) || '');
-  $('#goal').hidden = !goal;
-  $('#goal').textContent = goal ? `Næste mål\n${goal}` : '';
   const last = workout === 'andet' ? '' : lastEntryFor(logText, workout);
   $('#last').hidden = workout === 'andet';
-  $('#last').textContent = last ? `Sidste gang\n${last}` : 'Sidste gang\nIngen tidligere log med denne workout.';
+  $('#last pre').textContent = last || 'Ingen tidligere log med denne workout.';
 }
 
-function prefill(force) {
-  const body = $('#log-form').body;
-  if (body.value.trim() && !force && !confirm('Erstat det, du har skrevet?')) return;
-  body.value = mainLines(plans.get($('#workout').value) || '').join('\n');
+function edited() {
+  dirty = true;
   saveDraft();
+}
+
+function setRow(ex, s, j) {
+  const kg = s.load.match(/^(\d+(?:[.,]\d+)?)\s*kg$/i);
+  const load = el('input', {
+    value: kg ? kg[1] : s.load,
+    className: kg ? 'num' : 'load',
+    inputMode: kg ? 'decimal' : 'text',
+    oninput: () => {
+      const v = load.value.trim();
+      s.load = kg && /^\d+([.,]\d+)?$/.test(v) ? `${v} kg` : v;
+    },
+  });
+  const n = s.unit && el('input', { value: s.n, className: 'num', inputMode: 'numeric', oninput: () => (s.n = n.value) });
+  const remove = el('button', {
+    type: 'button',
+    className: 'icon',
+    textContent: '✕',
+    title: 'Fjern sæt',
+    onclick: () => {
+      ex.sets.splice(j, 1);
+      renderCards();
+      edited();
+    },
+  });
+  return el('div', { className: 'set' },
+    el('span', { className: 'idx', textContent: `${j + 1}` }),
+    s.side && el('span', { className: 'tag', textContent: s.side }),
+    load,
+    kg && el('span', { className: 'tag', textContent: 'kg' }),
+    s.unit === '×' && el('span', { className: 'tag', textContent: '×' }),
+    n || '',
+    s.unit === 'sek.' && el('span', { className: 'tag', textContent: 'sek.' }),
+    remove,
+  );
+}
+
+function card(ex, i, info, last) {
+  const hint = [
+    [info?.goal && `Mål: ${info.goal}`, info?.reserve && `Reserve: ${info.reserve}`].filter(Boolean).join(' · '),
+    info?.note,
+    last && `Sidst: ${[...last.sets.map(formatSet), last.note && `(${last.note})`].filter(Boolean).join(' · ')}`,
+  ].filter(Boolean).join('\n');
+  const field = (key, label) => el('label', {}, label, el('input', { value: ex[key], oninput: (e) => (ex[key] = e.target.value) }));
+  return el('div', { className: 'card' },
+    el('div', { className: 'card-head' },
+      el('strong', { textContent: `${ex.num}. ${ex.name}` }),
+      el('button', {
+        type: 'button',
+        className: 'icon',
+        textContent: '✕',
+        title: 'Fjern øvelse',
+        onclick: () => {
+          if (!confirm(`Fjern ${ex.name} fra loggen?`)) return;
+          exercises.splice(i, 1);
+          renderCards();
+          edited();
+        },
+      }),
+    ),
+    hint && el('p', { className: 'hint', textContent: hint }),
+    ...ex.sets.map((s, j) => setRow(ex, s, j)),
+    el('button', {
+      type: 'button',
+      className: 'link',
+      textContent: '+ sæt',
+      onclick: () => {
+        ex.sets.push({ ...(ex.sets.at(-1) || { side: '', load: '', n: '', unit: '×' }) });
+        renderCards();
+        edited();
+      },
+    }),
+    el('div', { className: 'row' }, field('pause', 'Pause'), field('note', 'Note')),
+  );
+}
+
+function renderCards() {
+  const workout = $('#workout').value;
+  const info = planInfo(plans.get(workout) || '');
+  const last = parseExercises(workout === 'andet' ? '' : lastEntryFor(logText, workout));
+  $('#cards').replaceChildren(
+    ...exercises.map((ex, i) => card(ex, i, info.find((x) => sameName(x.name, ex.name)), last.find((x) => sameName(x.name, ex.name)))),
+  );
+}
+
+function prefill(ask) {
+  if (ask && dirty && !confirm('Erstat det, du har skrevet?')) return;
+  exercises = parseExercises(exFiles.get($('#workout').value) || '');
+  $('#log-form').body.value = '';
+  dirty = false;
+  renderCards();
+  saveDraft();
+}
+
+function addExercise() {
+  const name = prompt('Navn på øvelsen');
+  if (!name || !name.trim()) return;
+  const num = Math.max(0, ...exercises.map((e) => Number(e.num) || 0)) + 1;
+  exercises.push({ num: String(num), name: name.trim().toUpperCase(), pause: '', note: '', sets: [{ side: '', load: '', n: '', unit: '×' }] });
+  renderCards();
+  edited();
 }
 
 function autosize() {
@@ -88,15 +198,20 @@ function autosize() {
 
 function saveDraft() {
   autosize();
-  store.set('draft', Object.fromEntries(new FormData($('#log-form'))));
+  store.set('draft', { ...Object.fromEntries(new FormData($('#log-form'))), exercises, dirty });
 }
 
 function restoreDraft() {
   const form = $('#log-form');
   const d = store.get('draft', {});
-  for (const [k, v] of Object.entries(d)) if (form[k] && v) form[k].value = v;
+  for (const [k, v] of Object.entries(d)) if (form[k] && typeof v === 'string' && v) form[k].value = v;
   if (!form.date.value) form.date.value = new Date().toLocaleDateString('sv-SE');
   if (!form.place.value) form.place.value = store.get('lastPlace', '');
+  exercises = Array.isArray(d.exercises) ? d.exercises : [];
+  dirty = Boolean(d.dirty) || (!d.exercises && Boolean(d.body));
+  updateLast();
+  if (!exercises.length && !form.body.value.trim()) prefill(false);
+  else renderCards();
   autosize();
 }
 
@@ -104,21 +219,29 @@ async function submitLog(e) {
   e.preventDefault();
   const form = e.target;
   const data = Object.fromEntries(new FormData(form));
-  const entry = formatEntry(data);
+  const body = [formatExercises(exercises), data.body.trim()].filter(Boolean).join('\n\n');
+  if (!body) {
+    status('Der er intet at gemme.', 'error');
+    return;
+  }
+  const entry = formatEntry({ ...data, body });
   if (!confirm(`Gem dette i loggen?\n\n${entry}`)) return;
   const btn = form.querySelector('[type=submit]');
   btn.disabled = true;
   status('Gemmer …');
   try {
-    await client().appendToFile(cfg().logPath, entry, `Log: ${entry.split('\n')[0]}`);
+    await client().appendToFile(cfg().logPath, entry, `Log: ${entryHeader(entry)}`);
     logText = appendEntry(logText, entry);
-    updateGoal();
     store.set('lastPlace', data.place || '');
-    localStorage.removeItem('draft');
+    exercises = [];
+    dirty = false;
     form.body.value = '';
     form.start.value = '';
     form.end.value = '';
     form.date.value = new Date().toLocaleDateString('sv-SE');
+    localStorage.removeItem('draft');
+    updateLast();
+    renderCards();
     autosize();
     status('Gemt i loggen ✓', 'ok');
   } catch (err) {
@@ -134,14 +257,8 @@ async function loadHistory() {
   try {
     const { text } = await client().getFile(cfg().logPath);
     logText = text;
-    updateGoal();
-    list.replaceChildren(
-      ...splitEntries(text).slice(0, 10).map((entry) => {
-        const pre = document.createElement('pre');
-        pre.textContent = entry;
-        return pre;
-      }),
-    );
+    updateLast();
+    list.replaceChildren(...splitEntries(text).slice(0, 10).map((entry) => el('pre', { textContent: entry })));
   } catch (err) {
     list.textContent = '';
     status(err.message, 'error');
@@ -194,11 +311,15 @@ $('#plan-back').onclick = () => {
   $('#plan-list').hidden = false;
 };
 $('#workout').onchange = () => {
-  updateGoal();
-  saveDraft();
+  updateLast();
+  prefill(true);
 };
-$('#prefill').onclick = () => prefill(false);
-$('#log-form').oninput = saveDraft;
+$('#prefill').onclick = () => prefill(true);
+$('#add-ex').onclick = addExercise;
+$('#log-form').oninput = (e) => {
+  if (e.target.name === 'body' || e.target.closest('#cards')) edited();
+  else saveDraft();
+};
 $('#log-form').onsubmit = submitLog;
 $('#settings-form').onsubmit = saveSettings;
 

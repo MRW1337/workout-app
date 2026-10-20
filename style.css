@@ -84,11 +84,25 @@ input, select, textarea {
   font-size: 16px;
 }
 
-textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 15px; line-height: 1.5; min-height: 45vh; resize: vertical; field-sizing: content; }
+textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 15px; line-height: 1.5; min-height: 4.5em; resize: vertical; field-sizing: content; }
 
 .hint { color: var(--muted); font-size: 13px; }
 
 #status { padding: 10px 12px; border-radius: 8px; background: var(--card); }
-#last { color: var(--muted); }
+#last { color: var(--muted); margin: 10px 0; }
+#last summary { padding: 8px 0; }
 #status.ok { color: var(--accent); }
 #status.error { color: var(--error); }
+
+.card { background: var(--card); border-radius: 10px; padding: 12px; margin: 12px 0; }
+.card-head { display: flex; align-items: center; gap: 8px; }
+.card-head strong { flex: 1; }
+.card .hint { margin: 4px 0; white-space: pre-wrap; }
+.set { display: flex; align-items: center; gap: 6px; margin: 6px 0; }
+.set input { margin: 0; padding: 10px 8px; }
+.set .load { flex: 1; min-width: 0; }
+.set .num { flex: none; width: 4.2em; text-align: center; }
+.set .idx, .set .tag { color: var(--muted); font-size: 13px; flex: none; }
+.set .idx { width: 1.2em; }
+.card .row input { padding: 10px 8px; }
+.icon { background: none; border: 0; color: var(--muted); font-size: 18px; padding: 6px 8px; flex: none; }

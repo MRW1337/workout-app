@@ -73,8 +73,26 @@ function openPlan(name) {
     const changed = $('#workout').value !== name;
     $('#workout').value = name;
     if (changed || !exercises.length) prefill(true);
+    const form = $('#log-form');
+    const now = new Date();
+    form.date.value = now.toLocaleDateString('sv-SE');
+    form.start.value = now.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+    form.end.value = '';
+    saveDraft();
+    updateTimer();
     show('log');
   };
+}
+
+function updateTimer() {
+  const { date, start, end } = $('#log-form');
+  const t = $('#timer');
+  const from = date.value && start.value ? new Date(`${date.value}T${start.value}`) : null;
+  const secs = from && !end.value ? Math.floor((Date.now() - from) / 1000) : -1;
+  t.hidden = secs < 0;
+  if (secs < 0) return;
+  const p = (n) => String(n).padStart(2, '0');
+  t.textContent = `Tid: ${p(Math.floor(secs / 3600))}:${p(Math.floor((secs % 3600) / 60))}:${p(secs % 60)}`;
 }
 
 function updateLast() {
@@ -213,6 +231,7 @@ function restoreDraft() {
   if (!exercises.length && !form.body.value.trim()) prefill(false);
   else renderCards();
   autosize();
+  updateTimer();
 }
 
 async function submitLog(e) {
@@ -240,6 +259,7 @@ async function submitLog(e) {
     form.end.value = '';
     form.date.value = new Date().toLocaleDateString('sv-SE');
     localStorage.removeItem('draft');
+    updateTimer();
     updateLast();
     renderCards();
     autosize();
@@ -319,7 +339,9 @@ $('#add-ex').onclick = addExercise;
 $('#log-form').oninput = (e) => {
   if (e.target.name === 'body' || e.target.closest('#cards')) edited();
   else saveDraft();
+  updateTimer();
 };
+setInterval(updateTimer, 1000);
 $('#log-form').onsubmit = submitLog;
 $('#settings-form').onsubmit = saveSettings;
 

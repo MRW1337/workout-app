@@ -21,6 +21,18 @@ Each workout has 2 files in the plan folder:
 
 The app writes log entries in the same format as `navn.log.txt`. Each entry starts with a `═══` line, so you can see where a workout starts.
 
+## Food (Kost)
+
+The **Kost** tab saves a meal: photos, a note and an optional morning weight. The app scales photos to max 1600 px JPEG before upload. It writes to a day folder in the data repo:
+
+```
+Kost/kost.log/2026-10-27/1235.jpg
+Kost/kost.log/2026-10-27/1235.2.jpg   (2nd photo of the same meal)
+Kost/kost.log/2026-10-27/1235.txt     (date, time, photo names, weight, note)
+```
+
+A second meal in the same minute gets `1235-2`.
+
 ## Files
 
 - `core.js` — GitHub client, plan parsing and log formatting (no DOM).

@@ -18,6 +18,7 @@
     <button data-tab="plans" class="active">Planer</button>
     <button data-tab="log">Log</button>
     <button data-tab="history">Historik</button>
+    <button data-tab="food">Kost</button>
     <button data-tab="settings">⚙︎</button>
   </nav>
 
@@ -60,6 +61,28 @@
 
     <section id="history" hidden>
       <div id="history-list"></div>
+    </section>
+
+    <section id="food" hidden>
+      <form id="food-form">
+        <label class="photo-btn">📷 Tag eller vælg billede
+          <input type="file" id="food-file" accept="image/*" multiple>
+        </label>
+        <div id="food-previews"></div>
+        <div class="row">
+          <label>Dato <input type="date" name="date" required></label>
+          <label>Tid <input type="time" name="time" required></label>
+        </div>
+        <label>Note
+          <textarea name="note" rows="2" placeholder="fx 150 g kylling, 80 g ris (tør vægt)"></textarea>
+        </label>
+        <label>Morgenvægt i kg (valgfri)
+          <input type="text" name="weight" inputmode="decimal" placeholder="fx 81,4">
+        </label>
+        <button type="submit" class="primary">Gem måltid</button>
+      </form>
+      <h3 id="food-day-title"></h3>
+      <div id="food-day"></div>
     </section>
 
     <section id="settings" hidden>

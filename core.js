@@ -4,6 +4,7 @@ export const DEFAULTS = {
   branch: 'main',
   planDir: 'Calisthenics/calisthenics.workout.plan',
   logPath: 'Calisthenics/calisthenics.workout.log/log.txt',
+  foodDir: 'Kost/kost.log',
 };
 
 export function b64encode(str) {
@@ -96,9 +97,31 @@ export function formatExercises(exercises) {
     .join('\n\n');
 }
 
-function formatDate(iso) {
+export function formatDate(iso) {
   const [y, m, d] = iso.split('-');
   return `${d}-${m}-${y}`;
+}
+
+// A meal is saved as "HHMM.txt" plus photos in the day folder. A second meal in the same minute gets "HHMM-2".
+export function uniqueBase(base, names) {
+  const taken = (b) => names.some((n) => n.startsWith(`${b}.`));
+  if (!taken(base)) return base;
+  let i = 2;
+  while (taken(`${base}-${i}`)) i++;
+  return `${base}-${i}`;
+}
+
+// One photo → "1235.jpg". More photos → "1235.jpg", "1235.2.jpg", ...
+export const photoNames = (base, count) => Array.from({ length: count }, (_, i) => (i ? `${base}.${i + 1}.jpg` : `${base}.jpg`));
+
+export function formatMeal({ date, time, note, weight, photos }) {
+  const w = String(weight ?? '').trim().replace('.', ',');
+  return [
+    `${formatDate(date)} | ${time.replace(':', '.')}`,
+    photos.length && `Billeder: ${photos.join(', ')}`,
+    w && `Vægt: ${w} kg`,
+    String(note ?? '').trim() && `Note: ${note.trim()}`,
+  ].filter(Boolean).join('\n') + '\n';
 }
 
 export function formatEntry({ date, start, end, workout, place, body }) {
@@ -167,12 +190,14 @@ export function createClient({ token, owner, repo, branch }) {
     return items.filter((i) => i.type === 'file').map((i) => i.name).sort();
   }
 
-  async function putFile(path, text, sha, message) {
+  async function putBase64(path, content, sha, message) {
     return call(path, {
       method: 'PUT',
-      body: JSON.stringify({ message, content: b64encode(text), sha, branch }),
+      body: JSON.stringify({ message, content, sha, branch }),
     });
   }
+
+  const putFile = (path, text, sha, message) => putBase64(path, b64encode(text), sha, message);
 
   // Retries once if the file changed between read and write.
   async function appendToFile(path, entry, message) {
@@ -187,5 +212,5 @@ export function createClient({ token, owner, repo, branch }) {
     }
   }
 
-  return { getFile, listDir, putFile, appendToFile };
+  return { getFile, listDir, putFile, putBase64, appendToFile };
 }

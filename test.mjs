@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import {
   SEP, b64encode, b64decode, formatEntry, entryHeader, appendEntry, splitEntries, lastEntryFor,
   isExerciseFile, sameName, planInfo, parseSet, formatSet, parseExercises, formatExercises,
+  formatDate, uniqueBase, photoNames, formatMeal,
 } from './core.js';
 
 assert.equal(b64decode(b64encode('Træning æøå — ×')), 'Træning æøå — ×');
@@ -62,5 +63,20 @@ const log2 = 'Skabelon:\nDato | Tid | Træning\n\n14-10-2026 | — | pull-tung\n
 assert.equal(lastEntryFor(log2, 'pull-tung'), '17-10-2026 | 10.30 | pull-tung\n\nnew');
 assert.equal(lastEntryFor(log2, 'push'), '15-10-2026 | — | push | Gym\n\np');
 assert.equal(lastEntryFor(log2, 'zone2-loeb'), '');
+
+assert.equal(formatDate('2026-10-27'), '27-10-2026');
+assert.equal(uniqueBase('1235', []), '1235');
+assert.equal(uniqueBase('1235', ['0800.txt', '1235-old.md']), '1235');
+assert.equal(uniqueBase('1235', ['1235.jpg', '1235.2.jpg', '1235.txt']), '1235-2');
+assert.equal(uniqueBase('1235', ['1235.txt', '1235-2.txt']), '1235-3');
+assert.deepEqual(photoNames('1235', 0), []);
+assert.deepEqual(photoNames('1235', 1), ['1235.jpg']);
+assert.deepEqual(photoNames('1235-2', 3), ['1235-2.jpg', '1235-2.2.jpg', '1235-2.3.jpg']);
+assert.equal(
+  formatMeal({ date: '2026-10-27', time: '12:35', note: ' 150 g kylling ', weight: '81.4', photos: ['1235.jpg', '1235.2.jpg'] }),
+  '27-10-2026 | 12.35\nBilleder: 1235.jpg, 1235.2.jpg\nVægt: 81,4 kg\nNote: 150 g kylling\n',
+);
+assert.equal(formatMeal({ date: '2026-10-27', time: '07:05', note: '', weight: '', photos: ['0705.jpg'] }), '27-10-2026 | 07.05\nBilleder: 0705.jpg\n');
+assert.equal(formatMeal({ date: '2026-10-27', time: '07:05', note: '', weight: '81,2', photos: [] }), '27-10-2026 | 07.05\nVægt: 81,2 kg\n');
 
 console.log('all tests passed');

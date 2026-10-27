@@ -106,3 +106,19 @@ textarea { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 15p
 .set .idx { width: 1.2em; }
 .card .row input { padding: 10px 8px; }
 .icon { background: none; border: 0; color: var(--muted); font-size: 18px; padding: 6px 8px; flex: none; }
+
+.photo-btn {
+  position: relative;
+  padding: 28px 16px;
+  border: 2px dashed #30363d;
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 17px;
+  text-align: center;
+}
+.photo-btn input { position: absolute; inset: 0; opacity: 0; margin: 0; }
+#food-previews { display: flex; flex-wrap: wrap; gap: 8px; }
+.thumb { position: relative; }
+.thumb img { display: block; width: 96px; height: 96px; object-fit: cover; border-radius: 8px; }
+.thumb .icon { position: absolute; top: 0; right: 0; background: rgba(0, 0, 0, 0.6); border-radius: 0 8px 0 8px; color: var(--text); }
+#food h3 { margin: 24px 0 8px; font-size: 15px; color: var(--muted); }

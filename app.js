@@ -1,6 +1,7 @@
 import {
   DEFAULTS, createClient, formatEntry, entryHeader, splitEntries, lastEntryFor, appendEntry,
   isExerciseFile, sameName, planInfo, parseExercises, formatExercises, formatSet,
+  formatDate, uniqueBase, photoNames, formatMeal,
 } from './core.js';
 
 const $ = (s) => document.querySelector(s);
@@ -16,6 +17,7 @@ const exFiles = new Map();
 let logText = '';
 let exercises = [];
 let dirty = false;
+let foodPhotos = [];
 
 function el(tag, props = {}, ...kids) {
   const e = Object.assign(document.createElement(tag), props);
@@ -35,6 +37,7 @@ function show(tab) {
   document.querySelectorAll('nav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === tab));
   status('');
   if (tab === 'history') loadHistory();
+  if (tab === 'food') openFood();
   if (tab === 'log' && !exercises.length && !$('#log-form').body.value.trim()) prefill(false);
 }
 
@@ -285,6 +288,137 @@ async function loadHistory() {
   }
 }
 
+const foodFolder = (date) => `${cfg().foodDir}/${date}`;
+
+function setFoodNow() {
+  const form = $('#food-form');
+  const now = new Date();
+  form.date.value = now.toLocaleDateString('sv-SE');
+  form.time.value = now.toLocaleTimeString('sv-SE', { hour: '2-digit', minute: '2-digit' });
+}
+
+function openFood() {
+  const form = $('#food-form');
+  if (!foodPhotos.length && !form.note.value.trim() && !form.weight.value.trim()) setFoodNow();
+  loadFoodDay();
+}
+
+function renderFoodPhotos() {
+  $('#food-previews').replaceChildren(
+    ...foodPhotos.map((p, i) =>
+      el('div', { className: 'thumb' },
+        el('img', { src: p.url, alt: '' }),
+        el('button', {
+          type: 'button',
+          className: 'icon',
+          textContent: '✕',
+          title: 'Fjern billede',
+          onclick: () => {
+            URL.revokeObjectURL(p.url);
+            foodPhotos.splice(i, 1);
+            renderFoodPhotos();
+          },
+        }),
+      ),
+    ),
+  );
+}
+
+function addFoodPhotos(e) {
+  for (const file of e.target.files) foodPhotos.push({ file, url: URL.createObjectURL(file) });
+  e.target.value = '';
+  renderFoodPhotos();
+}
+
+// Phone photos are 3–5 MB. Scale to max 1600 px JPEG (~300 KB) before upload. Returns base64 without the data: prefix.
+async function toJpegBase64(file, max = 1600, quality = 0.8) {
+  const url = URL.createObjectURL(file);
+  try {
+    const img = new Image();
+    img.src = url;
+    await img.decode();
+    const scale = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    const canvas = el('canvas', { width: Math.round(img.naturalWidth * scale), height: Math.round(img.naturalHeight * scale) });
+    canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', quality));
+    if (!blob) throw new Error('Kunne ikke læse billedet.');
+    const dataUrl = await new Promise((resolve, reject) => {
+      const r = new FileReader();
+      r.onload = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+      r.readAsDataURL(blob);
+    });
+    return dataUrl.slice(dataUrl.indexOf(',') + 1);
+  } finally {
+    URL.revokeObjectURL(url);
+  }
+}
+
+async function listFoodDay(date) {
+  try {
+    return await client().listDir(foodFolder(date));
+  } catch (err) {
+    if (err.status === 404) return [];
+    throw err;
+  }
+}
+
+async function loadFoodDay() {
+  const date = $('#food-form').date.value;
+  const box = $('#food-day');
+  $('#food-day-title').textContent = date ? `Gemt ${formatDate(date)}` : '';
+  if (!date) return box.replaceChildren();
+  box.textContent = 'Henter …';
+  try {
+    const notes = (await listFoodDay(date)).filter((n) => n.endsWith('.txt')).sort((a, b) => a.slice(0, -4).localeCompare(b.slice(0, -4)));
+    const texts = await Promise.all(notes.map((n) => client().getFile(`${foodFolder(date)}/${n}`).then((f) => f.text.trim())));
+    box.replaceChildren(...(texts.length ? texts.map((t) => el('pre', { textContent: t })) : [el('p', { className: 'hint', textContent: 'Intet gemt endnu.' })]));
+  } catch (err) {
+    box.textContent = '';
+    status(err.message, 'error');
+  }
+}
+
+async function submitFood(e) {
+  e.preventDefault();
+  const form = e.target;
+  const { date, time, note, weight } = Object.fromEntries(new FormData(form));
+  if (!foodPhotos.length && !note.trim() && !weight.trim()) {
+    status('Tag et billede eller skriv en note.', 'error');
+    return;
+  }
+  if (weight.trim() && !/^\d{2,3}([.,]\d{1,2})?$/.test(weight.trim())) {
+    status('Skriv vægten som fx 81,4.', 'error');
+    return;
+  }
+  const btn = form.querySelector('[type=submit]');
+  btn.disabled = true;
+  try {
+    status('Gemmer …');
+    const folder = foodFolder(date);
+    const base = uniqueBase(time.replace(':', ''), await listFoodDay(date));
+    const photos = photoNames(base, foodPhotos.length);
+    const message = `Kost: ${formatDate(date)} ${time.replace(':', '.')}`;
+    for (const [i, p] of foodPhotos.entries()) {
+      status(`Gemmer billede ${i + 1} af ${photos.length} …`);
+      await client().putBase64(`${folder}/${photos[i]}`, await toJpegBase64(p.file), undefined, message);
+    }
+    await client().putFile(`${folder}/${base}.txt`, formatMeal({ date, time, note, weight, photos }), undefined, message);
+    foodPhotos.forEach((p) => URL.revokeObjectURL(p.url));
+    foodPhotos = [];
+    renderFoodPhotos();
+    form.note.value = '';
+    form.weight.value = '';
+    setFoodNow();
+    status('Gemt ✓', 'ok');
+    loadFoodDay();
+  } catch (err) {
+    status(`Kunne ikke gemme. Billederne er stadig her, så du kan prøve igen. ${err.message}`, 'error');
+  } finally {
+    btn.disabled = false;
+  }
+}
+
 async function saveSettings(e) {
   e.preventDefault();
   const { token, owner, repo, branch } = Object.fromEntries(new FormData(e.target));
@@ -343,6 +477,9 @@ $('#log-form').oninput = (e) => {
 };
 setInterval(updateTimer, 1000);
 $('#log-form').onsubmit = submitLog;
+$('#food-file').onchange = addFoodPhotos;
+$('#food-form').date.onchange = loadFoodDay;
+$('#food-form').onsubmit = submitFood;
 $('#settings-form').onsubmit = saveSettings;
 
 start();
